@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panini OCR Scanner</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: white; margin: 0; padding: 20px; }
+        #video { width: 100%; max-width: 400px; border-radius: 12px; background: #000; }
+        .controls { margin: 20px 0; }
+        button { padding: 15px 25px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
+        #snap { background: #d71920; color: white; }
+        #copy { background: #4CAF50; color: white; }
+        #result-box { background: #333; padding: 15px; border-radius: 8px; min-height: 50px; word-wrap: break-word; margin-top: 10px; }
+        canvas { display: none; }
+        .loading { color: #ffd700; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <h2>Sticker Scanner</h2>
+    
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <div class="controls">
+        <button id="snap">SNAP & SCAN</button>
+    </div>
+
+    <div id="status" class="loading"></div>
+
+    <h3>Comma Separated Numbers:</h3>
+    <div id="result-box">No stickers scanned yet.</div>
+    
+    <div class="controls">
+        <button id="copy" onclick="copyToClipboard()">Copy to Clipboard</button>
+        <button onclick="clearList()" style="background:#555; color:white;">Clear</button>
+    </div>
+
+<script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const snap = document.getElementById('snap');
+    const resultBox = document.getElementById('result-box');
+    const status = document.getElementById('status');
+    let stickerList = [];
+
+    // 1. Start Camera
+    async function setupCamera() {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment" }, 
+            audio: false 
+        });
+        video.srcObject = stream;
+    }
+
+    // 2. Capture and Process Image
+    snap.addEventListener('click', async () => {
+        status.innerText = "Processing OCR...";
+        
+        // Draw video frame to hidden canvas
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        
+        // Convert canvas to image and run Tesseract
+        const dataUrl = canvas.toDataURL('image/png');
+        
+        try {
+            const { data: { text } } = await Tesseract.recognize(dataUrl, 'eng', {
+                tessedit_char_whitelist: '0123456789' // Force it to only look for numbers
+            });
+
+            // Extract only the numbers found
+            const foundNumbers = text.match(/\d+/g);
+            
+            if (foundNumbers) {
+                foundNumbers.forEach(num => {
+                    if (!stickerList.includes(num)) stickerList.push(num);
+                });
+                updateDisplay();
+                status.innerText = "Success!";
+            } else {
+                status.innerText = "No number detected. Try closer.";
+            }
+        } catch (e) {
+            status.innerText = "Error scanning.";
+        }
+    });
+
+    function updateDisplay() {
+        resultBox.innerText = stickerList.join(', ');
+    }
+
+    function copyToClipboard() {
+        navigator.clipboard.writeText(resultBox.innerText);
+        alert("Copied!");
+    }
+
+    function clearList() {
+        stickerList = [];
+        updateDisplay();
+        status.innerText = "";
+    }
+
+    setupCamera();
+</script>
+</body>
+</html>
