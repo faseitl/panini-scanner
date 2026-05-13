@@ -3,108 +3,255 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panini OCR Scanner</title>
+    <title>Sticker Scanner (Pattern Mode)</title>
+    <!-- Tesseract OCR Library -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: white; margin: 0; padding: 20px; }
-        #video { width: 100%; max-width: 400px; border-radius: 12px; background: #000; }
-        .controls { margin: 20px 0; }
-        button { padding: 15px 25px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
-        #snap { background: #d71920; color: white; }
-        #copy { background: #4CAF50; color: white; }
-        #result-box { background: #333; padding: 15px; border-radius: 8px; min-height: 50px; word-wrap: break-word; margin-top: 10px; }
+        :root {
+            --panini-red: #d71920;
+            --dark-bg: #121212;
+            --card-bg: #1e1e1e;
+            --text: #ffffff;
+            --accent: #4CAF50;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--dark-bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: var(--panini-red);
+            font-size: 1.4rem;
+            margin: 0;
+            text-transform: uppercase;
+        }
+
+        #camera-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #333;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%;
+            height: 25%;
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+
+        .overlay::after {
+            content: "FRAME CODE (e.g. EGY 17)";
+            position: absolute;
+            top: -25px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 16px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+        }
+
+        #snap-btn { background-color: var(--panini-red); color: white; }
+        
+        .secondary-btns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        #copy-btn { background-color: var(--accent); color: white; }
+        #clear-btn { background-color: #444; color: white; }
+
+        .status-box {
+            margin: 15px 0;
+            font-size: 14px;
+            height: 20px;
+            text-align: center;
+            color: #ffd700;
+        }
+
+        .result-area {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #333;
+        }
+
+        #result-string {
+            font-family: monospace;
+            font-size: 15px;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+
         canvas { display: none; }
-        .loading { color: #ffd700; font-style: italic; }
     </style>
 </head>
 <body>
 
-    <h2>Sticker Scanner</h2>
-    
-    <video id="video" autoplay playsinline></video>
-    <canvas id="canvas"></canvas>
+<div class="container">
+    <header><h1>Sticker Scanner</h1></header>
 
-    <div class="controls">
-        <button id="snap">SNAP & SCAN</button>
+    <div id="camera-container">
+        <video id="video" autoplay playsinline></video>
+        <div class="overlay"></div>
     </div>
 
-    <div id="status" class="loading"></div>
+    <div id="status" class="status-box">Starting camera...</div>
 
-    <h3>Comma Separated Numbers:</h3>
-    <div id="result-box">No stickers scanned yet.</div>
-    
     <div class="controls">
-        <button id="copy" onclick="copyToClipboard()">Copy to Clipboard</button>
-        <button onclick="clearList()" style="background:#555; color:white;">Clear</button>
+        <button id="snap-btn">📸 SNAP CODE</button>
+        <div class="secondary-btns">
+            <button id="copy-btn">COPY CSV</button>
+            <button id="clear-btn">CLEAR</button>
+        </div>
     </div>
+
+    <div class="result-area">
+        <div style="font-size: 11px; color: #888; margin-bottom: 5px;">COLLECTED LIST:</div>
+        <div id="result-string">No codes scanned yet.</div>
+    </div>
+</div>
+
+<canvas id="canvas"></canvas>
 
 <script>
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const snap = document.getElementById('snap');
-    const resultBox = document.getElementById('result-box');
+    const snapBtn = document.getElementById('snap-btn');
+    const copyBtn = document.getElementById('copy-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    const resultString = document.getElementById('result-string');
     const status = document.getElementById('status');
-    let stickerList = [];
 
-    // 1. Start Camera
-    async function setupCamera() {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "environment" }, 
-            audio: false 
-        });
-        video.srcObject = stream;
+    let scannedItems = new Set(); 
+
+    async function initCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment", width: { ideal: 1280 } },
+                audio: false
+            });
+            video.srcObject = stream;
+            status.innerText = "Ready";
+        } catch (err) {
+            status.innerText = "Camera Access Denied";
+        }
     }
 
-    // 2. Capture and Process Image
-    snap.addEventListener('click', async () => {
-        status.innerText = "Processing OCR...";
-        
-        // Draw video frame to hidden canvas
+    snapBtn.addEventListener('click', async () => {
+        status.innerText = "⚡ Reading Code...";
+        snapBtn.disabled = true;
+
+        const ctx = canvas.getContext('2d');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        
-        // Convert canvas to image and run Tesseract
-        const dataUrl = canvas.toDataURL('image/png');
-        
-        try {
-            const { data: { text } } = await Tesseract.recognize(dataUrl, 'eng', {
-                tessedit_char_whitelist: '0123456789' // Force it to only look for numbers
-            });
+        ctx.drawImage(video, 0, 0);
 
-            // Extract only the numbers found
-            const foundNumbers = text.match(/\d+/g);
+        try {
+            const { data: { text } } = await Tesseract.recognize(
+                canvas.toDataURL('image/jpeg', 0.8),
+                'eng',
+                { 
+                    // Support A-Z and 0-9 and spaces[span_0](start_span)[span_0](end_span)
+                    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ',
+                }
+            );
+
+            // Pattern: 3 Letters + Space + 1-2 Digits (e.g. EGY 17)[span_1](start_span)[span_1](end_span)
+            const pattern = /[A-Z]{3}\s\d{1,2}/g;
+            const found = text.match(pattern);
             
-            if (foundNumbers) {
-                foundNumbers.forEach(num => {
-                    if (!stickerList.includes(num)) stickerList.push(num);
-                });
-                updateDisplay();
-                status.innerText = "Success!";
+            if (found) {
+                found.forEach(item => scannedItems.add(item.trim()));
+                updateUI();
+                status.innerText = "Success: " + found.join(', ');
             } else {
-                status.innerText = "No number detected. Try closer.";
+                status.innerText = "❌ Match not found. Get closer.";
             }
-        } catch (e) {
-            status.innerText = "Error scanning.";
+        } catch (error) {
+            status.innerText = "Scanning Error.";
+        } finally {
+            snapBtn.disabled = false;
         }
     });
 
-    function updateDisplay() {
-        resultBox.innerText = stickerList.join(', ');
+    function updateUI() {
+        if (scannedItems.size > 0) {
+            const sorted = Array.from(scannedItems).sort();
+            resultString.innerText = sorted.join(', ');
+        } else {
+            resultString.innerText = "No codes scanned yet.";
+        }
     }
 
-    function copyToClipboard() {
-        navigator.clipboard.writeText(resultBox.innerText);
-        alert("Copied!");
-    }
+    copyBtn.addEventListener('click', () => {
+        if (scannedItems.size === 0) return;
+        navigator.clipboard.writeText(resultString.innerText);
+        alert("List Copied!");
+    });
 
-    function clearList() {
-        stickerList = [];
-        updateDisplay();
-        status.innerText = "";
-    }
+    clearBtn.addEventListener('click', () => {
+        if (confirm("Clear the list?")) {
+            scannedItems.clear();
+            updateUI();
+            status.innerText = "List cleared";
+        }
+    });
 
-    setupCamera();
+    initCamera();
 </script>
+
 </body>
 </html>
