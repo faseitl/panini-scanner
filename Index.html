@@ -3,164 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sticker Scanner (Pattern Mode)</title>
-    <!-- Tesseract OCR Library -->
+    <title>Panini World Cup Scanner</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
-        :root {
-            --panini-red: #d71920;
-            --dark-bg: #121212;
-            --card-bg: #1e1e1e;
-            --text: #ffffff;
-            --accent: #4CAF50;
+        :root { --panini-red: #d71920; --dark-bg: #121212; --accent: #00ffcc; }
+        body { font-family: sans-serif; background: var(--dark-bg); color: white; margin: 0; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 500px; padding: 20px; box-sizing: border-box; }
+        #camera-container { position: relative; width: 100%; aspect-ratio: 1/1; background: #000; border-radius: 12px; overflow: hidden; border: 2px solid #333; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .overlay { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 50%; height: 20%; border: 2px solid var(--accent); border-radius: 40px; /* Pill shape */
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6); pointer-events: none; 
         }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--dark-bg);
-            color: var(--text);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 500px;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        h1 {
-            color: var(--panini-red);
-            font-size: 1.4rem;
-            margin: 0;
-            text-transform: uppercase;
-        }
-
-        #camera-container {
-            position: relative;
-            width: 100%;
-            aspect-ratio: 4/3;
-            background: #000;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 2px solid #333;
-        }
-
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .overlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 70%;
-            height: 25%;
-            border: 2px solid var(--accent);
-            border-radius: 8px;
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-            pointer-events: none;
-        }
-
-        .overlay::after {
-            content: "FRAME CODE (e.g. EGY 17)";
-            position: absolute;
-            top: -25px;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            font-size: 10px;
-            color: var(--accent);
-            font-weight: bold;
-        }
-
-        .controls {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-top: 20px;
-        }
-
-        button {
-            padding: 16px;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 10px;
-            border: none;
-            cursor: pointer;
-        }
-
-        #snap-btn { background-color: var(--panini-red); color: white; }
-        
-        .secondary-btns {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        #copy-btn { background-color: var(--accent); color: white; }
-        #clear-btn { background-color: #444; color: white; }
-
-        .status-box {
-            margin: 15px 0;
-            font-size: 14px;
-            height: 20px;
-            text-align: center;
-            color: #ffd700;
-        }
-
-        .result-area {
-            background: var(--card-bg);
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid #333;
-        }
-
-        #result-string {
-            font-family: monospace;
-            font-size: 15px;
-            word-break: break-all;
-            line-height: 1.4;
-        }
-
+        .overlay::after { content: "CENTER THE CODE HERE"; position: absolute; top: -25px; width: 100%; text-align: center; font-size: 12px; color: var(--accent); font-weight: bold; }
+        .controls { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; width: 100%; }
+        button { padding: 18px; font-size: 16px; font-weight: bold; border-radius: 12px; border: none; cursor: pointer; }
+        #snap-btn { background: var(--panini-red); color: white; }
+        .secondary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        #copy-btn { background: #444; color: white; }
+        #status { margin: 15px 0; text-align: center; color: #ffd700; min-height: 20px; }
+        .results { background: #1e1e1e; padding: 15px; border-radius: 10px; border: 1px solid #333; margin-top: 10px; }
         canvas { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <header><h1>Sticker Scanner</h1></header>
+    <h2 style="text-align:center; color:var(--panini-red)">W.C. 2026 SCANNER</h2>
 
     <div id="camera-container">
         <video id="video" autoplay playsinline></video>
         <div class="overlay"></div>
     </div>
 
-    <div id="status" class="status-box">Starting camera...</div>
+    <div id="status">Align code & tap Scan</div>
 
     <div class="controls">
-        <button id="snap-btn">📸 SNAP CODE</button>
-        <div class="secondary-btns">
-            <button id="copy-btn">COPY CSV</button>
-            <button id="clear-btn">CLEAR</button>
+        <button id="snap-btn">📸 SCAN CODE</button>
+        <div class="secondary">
+            <button id="copy-btn" onclick="copyList()">COPY LIST</button>
+            <button style="background:#222; color:#888" onclick="clearList()">CLEAR</button>
         </div>
     </div>
 
-    <div class="result-area">
-        <div style="font-size: 11px; color: #888; margin-bottom: 5px;">COLLECTED LIST:</div>
-        <div id="result-string">No codes scanned yet.</div>
+    <div class="results">
+        <div id="result-list" style="font-family: monospace; word-break: break-all;">No stickers yet.</div>
     </div>
 </div>
 
@@ -169,89 +57,69 @@
 <script>
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const snapBtn = document.getElementById('snap-btn');
-    const copyBtn = document.getElementById('copy-btn');
-    const clearBtn = document.getElementById('clear-btn');
-    const resultString = document.getElementById('result-string');
     const status = document.getElementById('status');
+    const resultList = document.getElementById('result-list');
+    let scanned = new Set();
 
-    let scannedItems = new Set(); 
-
-    async function initCamera() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment", width: { ideal: 1280 } },
-                audio: false
-            });
-            video.srcObject = stream;
-            status.innerText = "Ready";
-        } catch (err) {
-            status.innerText = "Camera Access Denied";
-        }
+    async function startCam() {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment", width: 1280 } 
+        });
+        video.srcObject = stream;
     }
 
-    snapBtn.addEventListener('click', async () => {
-        status.innerText = "⚡ Reading Code...";
-        snapBtn.disabled = true;
-
+    document.getElementById('snap-btn').addEventListener('click', async () => {
+        status.innerText = "⚡ Processing...";
         const ctx = canvas.getContext('2d');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0);
+        
+        // Capture only the center area (the overlay) for better accuracy
+        const zoom = 2; // Digital zoom for the OCR
+        canvas.width = 400;
+        canvas.height = 200;
+        
+        ctx.drawImage(video, video.videoWidth/4, video.videoHeight/2.5, video.videoWidth/2, video.videoHeight/4, 0, 0, 400, 200);
+
+        // --- PRE-PROCESSING: INVERT & CONTRAST ---
+        let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            // Convert to grayscale and Invert (for light text on dark background)[span_1](start_span)[span_1](end_span)
+            let avg = (data[i] + data[i+1] + data[i+2]) / 3;
+            let inverted = 255 - avg;
+            // High contrast threshold
+            let v = inverted > 128 ? 255 : 0; 
+            data[i] = data[i+1] = data[i+2] = v;
+        }
+        ctx.putImageData(imgData, 0, 0);
 
         try {
-            const { data: { text } } = await Tesseract.recognize(
-                canvas.toDataURL('image/jpeg', 0.8),
-                'eng',
-                { 
-                    // Support A-Z and 0-9 and spaces[span_0](start_span)[span_0](end_span)
-                    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ',
-                }
-            );
+            const { data: { text } } = await Tesseract.recognize(canvas.toDataURL(), 'eng');
+            // Regex: 3 letters, optional space, 1-2 digits[span_2](start_span)[span_2](end_span)
+            const pattern = /[A-Z]{3}\s?\d{1,2}/g;
+            const found = text.toUpperCase().match(pattern);
 
-            // Pattern: 3 Letters + Space + 1-2 Digits (e.g. EGY 17)[span_1](start_span)[span_1](end_span)
-            const pattern = /[A-Z]{3}\s\d{1,2}/g;
-            const found = text.match(pattern);
-            
             if (found) {
-                found.forEach(item => scannedItems.add(item.trim()));
+                found.forEach(item => scanned.add(item.replace(/\s/g, ' '))); // Normalize space
                 updateUI();
-                status.innerText = "Success: " + found.join(', ');
+                status.innerText = "✅ Found: " + found[0];
             } else {
-                status.innerText = "❌ Match not found. Get closer.";
+                status.innerText = "❌ Not found. Keep steady!";
             }
-        } catch (error) {
-            status.innerText = "Scanning Error.";
-        } finally {
-            snapBtn.disabled = false;
-        }
+        } catch (e) { status.innerText = "Error scanning."; }
     });
 
     function updateUI() {
-        if (scannedItems.size > 0) {
-            const sorted = Array.from(scannedItems).sort();
-            resultString.innerText = sorted.join(', ');
-        } else {
-            resultString.innerText = "No codes scanned yet.";
-        }
+        resultList.innerText = Array.from(scanned).sort().join(', ');
     }
 
-    copyBtn.addEventListener('click', () => {
-        if (scannedItems.size === 0) return;
-        navigator.clipboard.writeText(resultString.innerText);
-        alert("List Copied!");
-    });
+    function copyList() {
+        navigator.clipboard.writeText(resultList.innerText);
+        status.innerText = "Copied to clipboard!";
+    }
 
-    clearBtn.addEventListener('click', () => {
-        if (confirm("Clear the list?")) {
-            scannedItems.clear();
-            updateUI();
-            status.innerText = "List cleared";
-        }
-    });
+    function clearList() { if(confirm("Clear?")) { scanned.clear(); updateUI(); } }
 
-    initCamera();
+    startCam();
 </script>
-
 </body>
 </html>
